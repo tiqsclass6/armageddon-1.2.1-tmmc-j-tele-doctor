@@ -1,10 +1,113 @@
+# ============================================================
+# Terraform working directories and generated state
+# ============================================================
+
+**/.terraform/*
+
+*.tfstate
+*.tfstate.*
 .terraform.lock.hcl
-.terraform/
+.terraform.tfstate.lock.info
+
+crash.log
+crash.*.log
+
+# Local variable and backend configuration files may contain
+# account-specific values or secrets. Commit only examples.
+*.tfvars
+*.tfvars.json
+backend.hcl
+
+!*.tfvars.example
+!backend.hcl.example
+
+# Terraform plans and generated reports
+*.tfplan
+*.plan
+tfplan
+
+# Local Terraform CLI configuration
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+.terraformrc
+terraform.rc
+
+# Keep the dependency lock file in Git.
+!.terraform.lock.hcl
+
+# ============================================================
+# Generated Lambda/build artifacts
+# ============================================================
+
+/build/
+*.zip
+
+# ============================================================
+# Generated command output and local evidence
+# ============================================================
+
+out.json
+finding.json
+.lab-session.env
+
+# ============================================================
+# Python
+# ============================================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+.coverage
+.coverage.*
+htmlcov/
+
+# ============================================================
+# Environment variables and secrets
+# ============================================================
+
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Local AI and editor settings
+# ============================================================
+
+.claude/
+.idea/
+.vscode/
+CLAUDE.md
+
+# ============================================================
+# Operating-system metadata
+# ============================================================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ============================================================
+# Temporary files
+# ============================================================
+
+*.tmp
+*.temp
+
+# ============================================================
+# Artifacts from other tools
+# ============================================================
+
 run-artifacts/
 teardown-artifacts/
-.lab-session.env
-.terraform/providers/registry.terraform.io/hashicorp/aws/5.84.0/windows_amd64/LICENSE.txt
-.terraform/providers/registry.terraform.io/hashicorp/random/3.6.3/windows_amd64/LICENSE.txt
-.terraform/providers/registry.terraform.io/hashicorp/aws/5.84.0/windows_amd64/terraform-provider-aws_v5.84.0_x5.exe
-.terraform/providers/registry.terraform.io/hashicorp/random/3.6.3/windows_amd64/terraform-provider-random_v3.6.3_x5.exe
-.lab-session.env

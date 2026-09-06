@@ -1,4 +1,4 @@
-# **Armageddon 1.2.1 — TMMC J-Tele-Doctor**
+# **Armageddon 1.2.1 — Tokyo Midtown Medical Center — J-Tele-Doctor**
 
 ![Project](https://img.shields.io/badge/ARMAGEDDON-1.2.1-0B1F33?style=for-the-badge)
 ![AWS](https://img.shields.io/badge/AWS-7%20Regions-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
@@ -10,7 +10,6 @@
 ![Aurora](https://img.shields.io/badge/Aurora-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Grafana](https://img.shields.io/badge/Observability-Grafana%20%2B%20Loki-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 
-> **Tokyo Midtown Medical Center — J-Tele-Doctor**  
 > A Terraform-built AWS multi-region hub-and-spoke platform that provides regional application hosting while centralizing security logging and PII inside Japan.
 
 ---
@@ -55,7 +54,7 @@ The architecture is designed to demonstrate the following:
 - Application EC2 instances located in **private subnets with no public IP addresses**.
 - Inter-region connectivity using **AWS Transit Gateway peering**.
 - Promtail log collection in every application region.
-- Centralized Loki/Grafana observability in Tokyo.
+- Centralized Loki/Grafana observability in Tokyo. Grafana UI: **`admin` / `admin`** via SSM port-forward (not public). Loki has **no login**. See [Step 10](#step-10--validate-grafana) and [`documentation/RUNBOOK.md`](documentation/RUNBOOK.md).
 - Spoke-to-Tokyo syslog access restricted to **`10.230.60.0/23` on TCP 3100**.
 - PII stored only in Japan.
 - Aurora PostgreSQL hosted only inside the Tokyo VPC.
@@ -94,16 +93,16 @@ The AWS account must permit deployment across the application regions plus the O
 
 Required region access:
 
-| **Location**  | **AWS Region**   | **Role**               |
-| ------------- | ---------------- | ---------------------- |
-| Tokyo         | `ap-northeast-1` | Hub                    |
-| New York      | `us-east-1`      | Spoke                  |
-| London        | `eu-west-2`      | Spoke                  |
-| São Paulo     | `sa-east-1`      | Spoke                  |
-| Sydney        | `ap-southeast-2` | Spoke                  |
-| Hong Kong     | `ap-east-1`      | Spoke                  |
-| N. California | `us-west-1`      | Spoke                  |
-| Osaka         | `ap-northeast-3` | S3 syslog replica only |
+| **Location**      | **AWS Region**   | **Role**               |
+| ----------------- | ---------------- | ---------------------- |
+| **Tokyo**         | `ap-northeast-1` | Hub                    |
+| **New York**      | `us-east-1`      | Spoke                  |
+| **London**        | `eu-west-2`      | Spoke                  |
+| **São Paulo**     | `sa-east-1`      | Spoke                  |
+| **Sydney**        | `ap-southeast-2` | Spoke                  |
+| **Hong Kong**     | `ap-east-1`      | Spoke                  |
+| **N. California** | `us-west-1`      | Spoke                  |
+| **Osaka**         | `ap-northeast-3` | S3 syslog replica only |
 
 > **Important:** Hong Kong (`ap-east-1`) and Osaka (`ap-northeast-3`) must be enabled in the AWS account before deployment.
 
@@ -360,14 +359,35 @@ Return traffic is limited to the established SIEM connection required for Loki a
 ```text
 Armageddon 1.2.1/
 ├── documentation/
-│
 │   ├── Armageddon-Project-Class-6-V1.1.docx
 │   ├── Armageddon-Project-Class-6-V1.2.docx
 │   ├── armageddon.png
 │   ├── Armageddon.xlsx
+│   ├── grafana.csv
 │   └── RUNBOOK.md
-├── scripts/
 │
+├── images/
+│   ├── albs-and-asgs-all-regions.jpg
+│   ├── full-check-pt1.jpg
+│   ├── full-check-pt2.jpg
+│   ├── loki-data-full.jpg
+│   ├── loki-ingestion-and-grafana.jpg
+│   ├── prerequisites.jpg
+│   ├── promtail-auroradb-and-s3-syslog.jpg
+│   ├── public-albs-all-regions.jpg
+│   ├── teardown-pt1.jpg
+│   ├── teardown-pt2.jpg
+│   ├── teardown-pt3.jpg
+│   ├── teardown-pt4.jpg
+│   ├── terraform-apply-pt1.jpg
+│   ├── terraform-apply-pt2.jpg
+│   ├── terraform-artifacts.jpg
+│   ├── terraform-init-fmt-validate.jpg
+│   ├── terraform-outputs.jpg
+│   ├── terraform-plan.jpg
+│   └── transit-gateways-all-regions.jpg
+│
+├── scripts/
 │   ├── 1-user-data.sh
 │   ├── 2-grafana.sh
 │   ├── 3-run-lab.sh
@@ -464,9 +484,7 @@ The bucket is intentionally maintained outside normal lab teardown so Terraform 
 
 Before deployment, validate the VPC and subnet ranges against:
 
-```text
-documentation/Armageddon.xlsx
-```
+[CIDR Plan](documentation/Armageddon.xlsx)
 
 This prevents CIDR overlap between Tokyo and the six spoke VPCs.
 
@@ -524,12 +542,35 @@ Confirm the spokes cannot access Grafana or other Tokyo resources.
 
 ### **Step 10 — Validate Grafana**
 
-Grafana is internal to the Tokyo VPC.
+Grafana is **internal** to the Tokyo VPC (`10.230.0.0/16` on TCP `3000`). It is not reachable from a laptop or from the spokes. Full operator steps: [`documentation/RUNBOOK.md`](documentation/RUNBOOK.md) (Demo order → Grafana UI login).
+
+#### **Credentials**
+
+| **Service** | **Username** | **Password**                                             |
+| ----------- | ------------ | -------------------------------------------------------- |
+| **Grafana** | `admin`      | `admin` (change on first login; not stored in Terraform) |
+| **Loki**    | —            | none (`auth_enabled: false`)                             |
+
+**Open the UI** (lab must be running; Session Manager plugin required):
+
+```bash
+SIEM_ID=$(aws ec2 describe-instances --region ap-northeast-1 \
+  --filters "Name=tag:Name,Values=SIEM_Server" "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[0].InstanceId" --output text)
+
+aws ssm start-session \
+  --region ap-northeast-1 \
+  --target "$SIEM_ID" \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters portNumber=3000,localPortNumber=3000
+```
+
+Then browse `http://localhost:3000` and log in as `admin` / `admin`. Add Loki as a data source at `http://127.0.0.1:3100` if prompted, then **Explore** logs (`job=webserver`, `job=system`). This is log search, not CloudWatch resource metrics.
 
 Confirm:
 
 - Grafana listens on TCP `3000`.
-- Access is restricted to the Tokyo environment.
+- Access is restricted to the Tokyo environment (SSM tunnel or Tokyo VPC).
 - Loki is configured as the log data source.
 - Regional application logs are visible.
 
@@ -593,26 +634,20 @@ Suggested evidence is listed in the next section.
 
 A recommended repository layout is:
 
-```text
-└── images/
-    ├── 01-terraform-apply.png
-    ├── 02-regional-vpcs.png
-    ├── 03-regional-albs.png
-    ├── 04-regional-asgs.png
-    ├── 05-private-ec2.png
-    ├── 06-transit-gateways.png
-    ├── 07-tgw-peering.png
-    ├── 08-spoke-route-tables.png
-    ├── 09-tokyo-vpc.png
-    ├── 10-tokyo-siem-subnets.png
-    ├── 11-loki-health.png
-    ├── 12-grafana-dashboard.png
-    ├── 13-aurora-postgresql.png
-    ├── 14-s3-tokyo.png
-    ├── 15-s3-osaka-replica.png
-    ├── 16-e2e-validation.png
-    └── 17-terraform-destroy.png
-```
+![prerequisites](images/prerequisites.jpg)
+![terraform-init-fmt-validate](images/terraform-init-fmt-validate.jpg)
+![terraform-plan](images/terraform-plan.jpg)
+![terraform-apply-pt1](images/terraform-apply-pt1.jpg)
+![terraform-apply-pt2](images/terraform-apply-pt2.jpg)
+![terraform-outputs](images/terraform-outputs.jpg)
+![public-albs-all-regions](images/public-albs-all-regions.jpg)
+![albs-and-asgs-all-regions](images/albs-and-asgs-all-regions.jpg)
+![terraform-artifacts](images/terraform-artifacts.jpg)
+![transit-gateways-all-regions](images/transit-gateways-all-regions.jpg)
+![loki-ingestion-and-grafana](images/loki-ingestion-and-grafana.jpg)
+![promtail-auroradb-and-s3-syslog](images/promtail-auroradb-and-s3-syslog.jpg)
+![full-check-pt1](images/full-check-pt1.jpg)
+![full-check-pt2](images/full-check-pt2.jpg)
 
 ### Recommended Evidence Checklist
 
@@ -658,11 +693,10 @@ bash scripts/4-teardown-lab.sh
 
 The teardown workflow removes Terraform-managed lab resources and empties syslog buckets where required for successful destruction.
 
-The latest documented teardown removed:
-
-```text
-269 resources
-```
+![teardown-pt1.jpg](images/teardown-pt1.jpg)
+![teardown-pt2.jpg](images/teardown-pt2.jpg)
+![teardown-pt3.jpg](images/teardown-pt3.jpg)
+![teardown-pt4.jpg](images/teardown-pt4.jpg)
 
 The Terraform remote-state bucket is retained intentionally.
 
@@ -903,16 +937,17 @@ bash scripts/4-teardown-lab.sh
 
 ### **10.10 Common Configuration Issues**
 
-| **Issue**                          | **Check**                                                               |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| **Region fails to deploy**         | Confirm region is enabled and provider alias is correct.                |
-| **Hong Kong EC2 launch fails**     | Confirm supported instance type (`t3.micro`).                           |
-| **ALB unhealthy**                  | Check target group, SGs, HTTP service, and health-check path.           |
-| **Promtail cannot reach Loki**     | Check route to `10.230.60.0/23`, TGW peering, NACL, and SG rules.       |
-| **Grafana reachable from a spoke** | Review routing and SG restrictions immediately.                         |
-| **Aurora reachable from a spoke**  | Review TGW routes and database SG immediately.                          |
-| **Terraform destroy fails on S3**  | Empty required objects and rerun the teardown script.                   |
-| **Unexpected public EC2 address**  | Check subnet launch settings and launch-template network configuration. |
+| **Issue**                             | **Check**                                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------- |
+| **Region fails to deploy**            | Confirm region is enabled and provider alias is correct.                          |
+| **Hong Kong EC2 launch fails**        | Confirm supported instance type (`t3.micro`).                                     |
+| **ALB unhealthy**                     | Check target group, SGs, HTTP service, and health-check path.                     |
+| **Promtail cannot reach Loki**        | Check route to `10.230.60.0/23`, TGW peering, NACL, and SG rules.                 |
+| **Grafana reachable from a spoke**    | Review routing and SG restrictions immediately.                                   |
+| **Grafana UI from a laptop is `000`** | Expected. SSM port-forward to a `SIEM_Server` instance; log in `admin` / `admin`. |
+| **Aurora reachable from a spoke**     | Review TGW routes and database SG immediately.                                    |
+| **Terraform destroy fails on S3**     | Empty required objects and rerun the teardown script.                             |
+| **Unexpected public EC2 address**     | Check subnet launch settings and launch-template network configuration.           |
 
 ---
 
@@ -922,6 +957,8 @@ bash scripts/4-teardown-lab.sh
 
 | **Field**                  | **Value**                      |
 | -------------------------- | ------------------------------ |
+| **Author**                 | T.I.Q.S.                       |
+| **Group Leader**           | John Sweeney                   |
 | **Project**                | ARMAGEDDON 1.2.1               |
 | **Client / Scenario**      | Tokyo Midtown Medical Center   |
 | **Solution**               | J-Tele-Doctor                  |
@@ -930,23 +967,6 @@ bash scripts/4-teardown-lab.sh
 | **Version**                | 1.2.1                          |
 | **Last Updated**           | 2026-09-06                     |
 
-### Final Validation Snapshot
-
-Latest documented live E2E result:
-
-```text
-66 PASS / 1 WARN / 0 FAIL
-```
-
-Latest documented teardown:
-
-```text
-269 resources destroyed
-```
-
-The warning is the documented Tokyo `1c` application/restricted AZ overlap caused by the account's available Tokyo AZ set.
-
 ---
 
-**ARMAGEDDON 1.2.1**  
 *Global Care. Connected by AWS.*
